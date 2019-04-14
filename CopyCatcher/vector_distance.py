@@ -3,7 +3,6 @@
 import pandas as pd
 import nltk
 import json
-from bs4 import BeautifulSoup
 import re
 from gensim.models.doc2vec import TaggedDocument
 from gensim.models import doc2vec
@@ -14,6 +13,9 @@ from nltk.stem import WordNetLemmatizer, SnowballStemmer
 import gensim
 import xml.etree.ElementTree as ET
 root = ET.parse('../Posts.xml').getroot()
+
+nltk.download('wordnet')
+nltk.download('stopwords')
 
 en_stops = set(stopwords.words('english'))
 
@@ -66,4 +68,3 @@ for epoch in range(1,11):
 
 #Save the trained model
 model.save("../classifier/doc2vec/Doc2VecTaggedDocs")
-
