@@ -65,7 +65,7 @@ lda_model =  gensim.models.LdaMulticore(bow_corpus,
 For each topic, we will explore the words occuring in that topic and its relative weight
 '''
 for idx, topic in lda_model.print_topics(-1):
-    print("Topic: {} \nWords: {}".format(idx, topic ))
+    print("Topic: {} \nWords: {}".format(idx, topic))
     print("\n")
 
 num = 100
@@ -75,4 +75,4 @@ print(unseen_document)
 bow_vector = dictionary.doc2bow(preprocess(unseen_document))
 
 for index, score in sorted(lda_model[bow_vector], key=lambda tup: -1*tup[1]):
-    print("Score: {}\t Topic: {}".format(score, lda_model.print_topic(index, 5)))
+    print("Score: {}\t Topic: {}".format(score, lda_model.print_topic(index,5)))

@@ -9,88 +9,61 @@ from gensim.models.doc2vec import TaggedDocument
 from gensim.models import doc2vec
 from random import shuffle
 import time
-from sklearn.datasets import fetch_20newsgroups
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer, SnowballStemmer
+import gensim
+import xml.etree.ElementTree as ET
+root = ET.parse('../Posts.xml').getroot()
 
-#Choose tokenizer from nltk
-tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
+en_stops = set(stopwords.words('english'))
+
+stemmer = SnowballStemmer("english")
+
+def lemmatize_stemming(text):
+    return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
+
+# Tokenize and lemmatize
+def preprocess(text):
+    result=[]
+    for token in gensim.utils.simple_preprocess(text) :
+        if token not in gensim.parsing.preprocessing.STOPWORDS and len(token) > 3:
+            result.append(lemmatize_stemming(token))
+            
+    return result
 
 def myhash(obj):
        return hash(obj) % (2 ** 32)
 
-# Parse training data from training data CSV
-train = pd.read_csv("../../train.csv", header=0)
-num_questions = len(train.question1)
+data = []
 
-# # Here is the function review_to_sentences 
-# def review_to_sentences(review, tokenizer, sentiment=""):
-#     """
-#     This function splits a review into parsed sentences
-#     :param review:
-#     :param tokenizer:
-#     :param removeStopwords:
-#     :return: sentences, list of lists
-#     """
-#     # review.strip()remove the white spaces in the review
-#     # use tokenizer to separate review to sentences
+for row in root:
+    if 'Tags' in row.attrib.keys():
+        data.append([preprocess(row.attrib['Body']), preprocess(row.attrib['Tags'])])
 
-#     n = len(review)
-#     temp = ""
-#     for i in range(n):
-#         if review[i] == '"':
-#             temp += ' '
-#         else:
-#             temp += review[i]
-#     review = temp
-#     rawSentences = tokenizer.tokenize(review.strip())
-#     cleanedReview = []
-#     for sentence in rawSentences:
-#         if len(sentence) > 0:
-#             sentence = re.sub("[^a-zA-Z]", " ", sentence)
-#             cleanedReview += sentence
+taggedData = []
 
-#     # if(sentiment != ""):
-#     #     cleanedReview.append(sentiment)
+for question in data:
+    taggedData.append(TaggedDocument(words=question[0], tags=question[1]))
 
-#     return cleanedReview
+model = doc2vec.Doc2Vec(vector_size=3000,
+                        window=10, min_count=10,
+                        sample=1e-3, workers=4,hashfxn=myhash)
 
-# labeled = []
-# labelized = []
+model.build_vocab(taggedData)
 
-# index = 0
-# for i in range(num_questions):
-#     try:
-#         labeled.append(review_to_sentences(train.question1[i], tokenizer, train.is_duplicate[i]))
-#     except:
-#         continue
-
-#     tag_class = "0"
+#Train the model for 10 epochs
+for epoch in range(1,11):
     
-#     if train.is_duplicate[i] == 1:
-#         tag_class = "1"
+    print("Starting Epoch ",epoch)
     
-#     labeled[index].append(tag_class)
-#     labelized.append(TaggedDocument(words=labeled[index], tags=['%s_%s'%('LABELED', index),tag_class]))
-#     index += 1
+    start_time = time.time()
+    #Shuffle the tagged cleaned up reviews in each epoch
+    shuffle(taggedData)
 
-# model = doc2vec.Doc2Vec(vector_size=300,
-#                         window=10, min_count=40,
-#                         sample=1e-3, workers=4,hashfxn=myhash)
-
-# model.build_vocab(labelized)
-
-# #Train the model for 10 epochs
-# for epoch in range(1,10):
+    model.train(taggedData, total_examples=model.corpus_count, epochs=1)
     
-#     print("Starting Epoch ",epoch)
-    
-    
-#     start_time = time.time()
-#     #Shuffle the tagged cleaned up reviews in each epoch
-#     shuffle(labelized)
+    print("Epoch ",epoch," took %s minutes " % ((time.time() - start_time)/60))
 
-#     model.train(labelized, total_examples=model.corpus_count, epochs=1)
-    
-#     print("Epoch ",epoch," took %s minutes " % ((time.time() - start_time)/60))
+#Save the trained model
+model.save("../classifier/doc2vec/Doc2VecTaggedDocs")
 
-# #Save the trained model
-# model.save("../classifier/doc2vec/Doc2VecTaggedDocs")
