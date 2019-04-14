@@ -326,42 +326,126 @@ def semanticSimilarity(q1, q2):
     return overallSim(sentence1Means, sentence2Means, R)
 
 STOP_WORDS = nltk.corpus.stopwords.words()
+
 def clean_sentence(val):
     """Remove chars that are not letters or numbers, downcase, then remove stop words"""
     regex = re.compile('([^\s\w]|_)+')
     sentence = regex.sub('', val).lower()
     sentence = sentence.split(" ")
-
     for word in list(sentence):
         if word in STOP_WORDS:
             sentence.remove(word)
-
     sentence = " ".join(sentence)
     return sentence
 
-X_train = pd.read_csv('../input/quora.csv')
-X_train = X_train.dropna(how="any")
-X_train = X_train.sample(n=100)
+IS_DOCUMENT = True
+if not IS_DOCUMENT:
+    # For single sentences. Using data from quora
 
-y = X_train['is_duplicate']
+    X_train = pd.read_csv('../input/quora.csv')
+    X_train = X_train.dropna(how="any")
+    X_train = X_train.sample(n=100)
 
-print('Cleaning data')
-for col in ['question1', 'question2']:
-    X_train[col] = X_train[col].apply(clean_sentence)
+    y = X_train['is_duplicate']
 
-y_pred = []
-count = 0
-print('Semantic Similarity being calculated')
-for row in X_train.itertuples():
-    # print row
-    q1 = str(row[4])
-    q2 = str(row[5])
+    print('Cleaning data')
+    for col in ['question1', 'question2']:
+        X_train[col] = X_train[col].apply(clean_sentence)
 
-    sim = semanticSimilarity(q1, q2)
-    count += 1
-    if count % 10000 == 0:
-        print(str(count)+", "+str(sim)+", "+str(row[6]))
-    y_pred.append(sim)
+    y_pred = []
+    count = 0
+    print('Semantic Similarity being calculated')
+    for row in X_train.itertuples():
+        # print row
+        q1 = str(row[4])
+        q2 = str(row[5])
 
-print("Accuracy = {} %".format(100*log_loss(y, np.array(y_pred))))
+        sim = semanticSimilarity(q1, q2)
+        count += 1
+        if count % 10000 == 0:
+            print(str(count)+", "+str(sim)+", "+str(row[6]))
+        y_pred.append(sim)
 
+    print("Accuracy = {} %".format(100*log_loss(y, np.array(y_pred))))
+
+
+# The same thing can be extended for documents. The idea is to split sentences and work line by line
+# and somehow put this result together to give a net score.
+# This is a self invented method to compare documents and accuracy of this technique may not be up to mark compared to
+# methods such as doc2vec.
+
+def clean_document(doc):
+    """Given a document, cleans the document by running clean_sentence on individual sentences
+    """
+    doc = doc.replace("\n", "")
+    sentences = doc.split(".")
+    for i in range(len(sentences)):
+        sentences[i] = clean_sentence(sentences[i])
+    return sentences
+    
+
+if IS_DOCUMENT:
+    document1 = """
+    The legal system is made up of civil courts, criminal courts and specialty courts such as family law courts and bankruptcy court. 
+    Each court has its own jurisdiction, which refers to the cases that the court is allowed to hear.
+    In some instances, a case can only be heard in one type of court. For example, a bankruptcy case must be heard in a 
+    bankruptcy court. In other instances, there may be several potential courts with jurisdiction. 
+    For example, a federal criminal court and a state criminal court would each have jurisdiction over a crime that is a 
+    federal drug offense but that is also an offense on the state level.
+    """
+
+    document2 = """
+    The legal system is comprised of criminal and civil courts and specialty courts like bankruptcy and family law courts. 
+    Every one of the courts is vested with its own jurisdiction. Jurisdiction means the types of cases each court is permitted 
+    to rule on. Sometimes, only one type of court can hear a particular case. For instance, bankruptcy cases an be ruled on only 
+    in bankruptcy court. In other situations, it is possible for more than one court to have jurisdiction. For instance, both a 
+    state and federal criminal court could have authority over a criminal case that is illegal under federal and state drug laws.
+    """
+
+    document3 = """
+    A black hole is a region of spacetime exhibiting such strong gravitational effects that nothing not even particles and 
+    electromagnetic radiation such as light can escape from inside it. The theory of general relativity predicts that a 
+    sufficiently compact mass can deform spacetime to form a black hole. The boundary of the region from which no escape is 
+    possible is called the event horizon. Although the event horizon has an enormous effect on the fate and circumstances of an 
+    object crossing it, no locally detectable features appear to be observed. In many ways, a black hole acts like an ideal black body, 
+    as it reflects no light. Moreover, quantum field theory in curved spacetime predicts that event horizons emit 
+    Hawking radiation, with the same spectrum as a black body of a temperature inversely proportional to its mass. 
+    This temperature is on the order of billionths of a kelvin for black holes of stellar mass, making it essentially impossible 
+    to observe. 
+    """
+
+    # here, document2 is a paraphrased version of document1
+    # also, document3 and document1 are quite different.
+
+    clean_doc1 = clean_document(document1)
+    clean_doc2 = clean_document(document2)
+    clean_doc3 = clean_document(document3)
+
+    score_12 = 0
+    score_13 = 0
+
+    y = []
+    y_pred = []
+
+    l = min(len(clean_doc1), len(clean_doc2))
+    for x in range(l):
+        q1 = clean_doc1[x]
+        q2 = clean_doc2[x]
+
+        sim = semanticSimilarity(q1, q2)
+        y_pred.append(sim)
+
+    score_12 = sum(y_pred)/len(y_pred)*100
+
+    l = min(len(clean_doc1), len(clean_doc3))
+    for x in range(l):
+        q1 = clean_doc1[x]
+        q2 = clean_doc3[x]
+
+        sim = semanticSimilarity(q1, q2)
+        y_pred.append(sim)
+    
+    score_13 = sum(y_pred)/len(y_pred)*100
+
+    print("Similarity between Document1 and Document2 = {}".format(score_12))
+    print("Similarity between Document1 and Document3 = {}".format(score_13))
