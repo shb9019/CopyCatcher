@@ -40,14 +40,14 @@ data = []
 
 for row in root:
     if 'Tags' in row.attrib.keys():
-        data.append([preprocess(row.attrib['Body']), preprocess(row.attrib['Tags'])])
+        data.append([preprocess(row.attrib['Title'] + ' ' + row.attrib['Body']), preprocess(row.attrib['Tags'])])
 
 taggedData = []
 
 for question in data:
     taggedData.append(TaggedDocument(words=question[0], tags=question[1]))
 
-model = doc2vec.Doc2Vec(vector_size=3000,
+model = doc2vec.Doc2Vec(vector_size=300,
                         window=10, min_count=10,
                         sample=1e-3, workers=4,hashfxn=myhash)
 
